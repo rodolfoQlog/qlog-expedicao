@@ -88,8 +88,8 @@ html[data-tema=escuro] [style*="border-bottom:1px solid #ddd"]{border-color:#334
 html[data-tema=escuro] img[src="logo.png"]{background:#eef2f6;border-radius:14px;padding:8px}
 #updBan{position:fixed;left:10px;right:10px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:12;display:none;align-items:center;gap:8px;background:#1b8a3a;color:#fff;padding:10px 12px;border-radius:12px;box-shadow:0 4px 12px #0005;font-weight:bold}#updBan span{flex:1}#updBan button{border:0;border-radius:8px;padding:10px 12px;font-size:17px;font-weight:bold;background:#fff;color:#1b8a3a}#updBan #updBanX{background:transparent;color:#fff}
 
-/* v4.3.14: ícones próprios no lugar dos emojis */
+/* v4.3.15: ícones próprios no lugar dos emojis */
 .qx{display:inline;white-space:nowrap}.qx .qi{width:1.2em;height:1.2em;vertical-align:-.22em}
 
-/* v4.3.14: sem estouro lateral */
+/* v4.3.15: sem estouro lateral */
 *,*::before,*::after{box-sizing:border-box}html,body{max-width:100%;overflow-x:hidden}img,input,select,textarea,button,.card,table{max-width:100%}.card,label,b,small,span,p{overflow-wrap:anywhere}.eqp{overflow-x:hidden}.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.acts .big{flex:1 1 calc(50% - 6px);min-width:0;width:auto;margin:0;font-size:16px;padding:10px 8px;white-space:normal}
