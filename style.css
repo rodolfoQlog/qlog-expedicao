@@ -88,5 +88,5 @@ html[data-tema=escuro] [style*="border-bottom:1px solid #ddd"]{border-color:#334
 html[data-tema=escuro] img[src="logo.png"]{background:#eef2f6;border-radius:14px;padding:8px}
 #updBan{position:fixed;left:10px;right:10px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:12;display:none;align-items:center;gap:8px;background:#1b8a3a;color:#fff;padding:10px 12px;border-radius:12px;box-shadow:0 4px 12px #0005;font-weight:bold}#updBan span{flex:1}#updBan button{border:0;border-radius:8px;padding:10px 12px;font-size:17px;font-weight:bold;background:#fff;color:#1b8a3a}#updBan #updBanX{background:transparent;color:#fff}
 
-/* v4.3.12: ícones próprios no lugar dos emojis */
+/* v4.3.13: ícones próprios no lugar dos emojis */
 .qx{display:inline;white-space:nowrap}.qx .qi{width:1.2em;height:1.2em;vertical-align:-.22em}
