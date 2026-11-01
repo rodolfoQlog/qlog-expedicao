@@ -66,7 +66,7 @@ function ouvirArquivo(){return new Promise(ok=>{let p=false;const fim=()=>{if(!p
     N.arquivos=l;N.feitos=l.map(x=>x.mes);localStorage.setItem('arqFeitos',JSON.stringify(N.feitos));localStorage.setItem('arqLista',JSON.stringify(l));if(tab==='arquivo')render();fim();},()=>fim()));});}
 async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();
   if(N.admin)N.unsub.push(N.fs.collection('membros').onSnapshot(q=>{const o={};q.forEach(d=>{o[d.id]=d.data().nome||'';});N.nomes=o;if(tab==='hist')render();},()=>{}));
-  if(N.admin){ouvirAvisos();ouvirProblemas();ouvirPedidos();ouvirAcessos();}else{N.avisos=[];N.problemas=[];N.pedidos=[];N.acessos=[];sinoMostrar();ouvirMeusPedidos();}
+  if(N.admin){ouvirAvisos();ouvirProblemas();ouvirChamados();ouvirPedidos();ouvirAcessos();}else{N.avisos=[];N.problemas=[];N.chamados=[];N.pedidos=[];N.acessos=[];sinoMostrar();ouvirMeusPedidos();}
   ouvirAjustes();ouvirMeuAcesso();
   await ouvirArquivo();
   N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{const baixar=[];for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
@@ -178,7 +178,7 @@ N.painel=async(box)=>{const m=document.getElementById('modal');const A=box||m;le
 N.avisos=[];
 N.avisar=async(acao,antes,depois)=>{if(!N.on||N.admin)return;try{const a=L.avisoCriar(acao,antes,depois,{uid:N.uid,nome:N.nome},N.adminUid,Date.now());
   if(a)await N.fs.collection('avisos').add(a);}catch(e){}};
-function sinoMostrar(){const b=document.getElementById('sino');if(!b)return;const n=N.admin?N.avisos.length+(N.problemas||[]).length+(N.pedidos||[]).length+(N.acessos||[]).length:0;b.style.display=n?'inline-block':'none';b.textContent='🔔 '+n;}
+function sinoMostrar(){const b=document.getElementById('sino');if(!b)return;const n=N.admin?N.avisos.length+(N.problemas||[]).filter(p=>p.tela!=='suporte').length+L.chamadosNovos(N.chamadosTodos())+(N.pedidos||[]).length+(N.acessos||[]).length:0;b.style.display=n?'inline-block':'none';b.textContent='🔔 '+n;}
 function banner(t){let b=document.getElementById('avBanner');if(!b){b=document.createElement('div');b.id='avBanner';document.body.appendChild(b);b.onclick=()=>{b.style.display='none';if(window.abrirAdm&&N.admin)window.abrirAdm('av');else N.verAvisos();};}
   b.textContent='🔔 '+t;b.style.display='block';clearTimeout(b._h);b._h=setTimeout(()=>b.style.display='none',8000);}
 function ouvirAvisos(){let primeiro=true;
@@ -197,10 +197,10 @@ N.reportar=async p=>{if(!p)return false;try{localStorage.setItem('probFila',JSON
 window.addEventListener('online',()=>N.enviarFila());
 function ouvirProblemas(){let primeiro=true;
   N.unsub.push(N.fs.collection('problemas').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({id:d.id},d.data())));l.sort((a,b)=>(b.ts||0)-(a.ts||0));N.problemas=l;
-    if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites);if(novos.length)banner(novos.length>1?novos.length+' problemas relatados':'🐞 Problema relatado: '+String(novos[0].doc.data().txt||'').slice(0,60));}
-    primeiro=false;sinoMostrar();avAtualizar();},()=>{}));}
+    if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites);const sup=novos.filter(c=>c.doc.data().tela==='suporte'),pr=novos.filter(c=>c.doc.data().tela!=='suporte');if(sup.length)avisarChamado(sup.map(c=>Object.assign({id:c.doc.id},L.chamadoDeProblema(c.doc.data()))));if(pr.length)banner(pr.length>1?pr.length+' problemas relatados':'🐞 Problema relatado: '+String(pr[0].doc.data().txt||'').slice(0,60));}
+    primeiro=false;sinoMostrar();avAtualizar();chAtualizar();},()=>{}));}
 N.resolverProblema=async id=>{await N.fs.doc('problemas/'+id).delete();};
-function probHTML(e){const l=N.problemas||[];if(!l.length)return '';
+function probHTML(e){const l=(N.problemas||[]).filter(p=>p.tela!=='suporte');if(!l.length)return '';
   return '<b style="font-size:21px;display:block;margin:12px 0 6px">🐞 Problemas relatados</b>'+l.map(p=>`<div class="card" style="margin:6px 0;border-left:5px solid #c62828"><div style="font-size:18px;white-space:pre-wrap"><b>${e(p.txt)}</b></div>
    <small>${p.ts?L.fmtData(p.ts)+' às '+L.fmtHora(p.ts):''}${p.quem?' · '+e(p.quem):''}</small><details style="margin:6px 0"><summary>Detalhes</summary><small>Versão ${e(p.versao)} · ${e(p.plataforma)} · tela: ${e(p.tela)}<br>${e(p.aparelho)}</small>
    ${(p.erros||[]).length?'<ul style="margin:6px 0;padding-left:20px;font-size:13px">'+p.erros.map(x=>'<li>'+(x.ts?L.fmtHora(x.ts)+' ':'')+e(x.m)+(x.o?' ('+e(x.o)+')':'')+'</li>').join('')+'</ul>':'<p><small>Nenhum erro registrado.</small></p>'}</details>
@@ -311,4 +311,30 @@ function ouvirAjustes(){N.unsub.push(docE().onSnapshot(d=>{const x=d.exists?d.da
 N.janelaMs=()=>L.janelaMs(N.janelaMin);
 N.salvarJanela=async min=>{if(!L.janelaOk(min))throw new Error('valor');await docE().update({janelaMin:Number(min)});N.janelaMin=Number(min);localStorage.setItem('janMin',String(min));};
 N.iniciar=iniciar;
+
+// 4.3.18: 🎧 Falar com o suporte — chamados (Firestore, plano grátis). Foto comprimida dentro do próprio documento.
+N.chamados=[];N.chamadosTodos=()=>L.chamadosLista(N.chamados,N.problemas);
+N.enviarChamado=async c=>{if(!c)return false;if(!N.fs||!N.uid)return false;c.quemUid=N.uid;if(N.login)c.login=N.login;
+  const tenta=async()=>{try{await N.fs.collection('chamados').add(c);return true;}catch(e){try{await N.fs.collection('problemas').add(L.chamadoParaProblema(c));return true;}catch(x){return false;}}};
+  return await Promise.race([tenta(),new Promise(r=>setTimeout(()=>r(false),10000))]);};
+N.notificar=(t,m)=>{try{if(window.AndroidNotif&&AndroidNotif.mostrar){AndroidNotif.mostrar(String(t),String(m||''));return;}
+  if('Notification' in window&&Notification.permission==='granted'){const o={body:String(m||''),icon:'icone.png',tag:'qlog-chamado'};
+    if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(r=>{if(r&&r.showNotification)r.showNotification(t,o);else new Notification(t,o);}).catch(()=>{try{new Notification(t,o);}catch(e){}});else new Notification(t,o);}}catch(e){}};
+N.pedirNotif=()=>{try{if(window.AndroidNotif&&AndroidNotif.pedir){AndroidNotif.pedir();return;}if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();}catch(e){}};
+function avisarChamado(l){if(!l.length)return;const t=l.length>1?l.length+' chamados novos':'Novo chamado: '+String(l[0].nome||'')+' — '+String(l[0].msg||'').slice(0,60);
+  banner(t);N.notificar('Qlog Expedição · Suporte',t);try{if(navigator.vibrate)navigator.vibrate([150,80,150]);}catch(e){}}
+function chAtualizar(){sinoMostrar();if(window.admAtualizar)window.admAtualizar('ch');if(window.admContagem)window.admContagem();}
+function ouvirChamados(){let primeiro=true;
+  N.unsub.push(N.fs.collection('chamados').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({id:d.id},d.data())));N.chamados=l;
+    if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites&&c.doc.data().status==='novo');avisarChamado(novos.map(c=>c.doc.data()));}
+    primeiro=false;chAtualizar();},()=>{}));}
+N.resolverChamado=async c=>{if(c.reserva)await N.fs.doc('problemas/'+c.id).delete();else await N.fs.doc('chamados/'+c.id).update({status:'resolvido',resolvidoTs:Date.now()});};
+N.verChamados=box=>{const e=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');const l=N.chamadosTodos();const ic=window.Tema?Tema.ic('suporte'):'';
+  box.innerHTML=`<b style="font-size:22px;display:block;margin-bottom:8px">${ic} Chamados</b>${l.length?l.map((c,i)=>`<div class="card cham" style="margin:6px 0;border-left:5px solid ${c.status==='novo'?'#e08a00':'#1b8a3a'}">
+   <div style="font-size:18px"><b>${e(c.nome)}</b> <small>${c.status==='novo'?'· novo':'· resolvido'}</small></div><small>${c.ts?L.fmtData(c.ts)+' às '+L.fmtHora(c.ts):''}</small>
+   <details style="margin:6px 0"${c.status==='novo'&&i===0?' open':''}><summary>Abrir</summary><div style="font-size:18px;white-space:pre-wrap;margin:6px 0">${e(c.msg)}</div>
+   ${c.img?`<img src="${e(c.img)}" alt="foto" style="max-width:100%;max-height:320px;margin:4px 0;border-radius:8px">`:''}
+   <small>Versão ${e(c.versao)} · ${e(c.plataforma)}${c.login?' · '+e(c.login):''}<br>${e(c.aparelho)}</small></details>
+   ${c.status==='novo'?`<button class="big ok" data-chok="${i}">✅ Marcar como resolvido</button>`:''}</div>`).join(''):'<p>Nenhum chamado ainda.</p>'}`;
+  box.querySelectorAll('[data-chok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.resolverChamado(l[+b.dataset.chok]);toast('✅ Resolvido');}catch(x){b.disabled=false;toast('Sem internet');}});};
 })();
