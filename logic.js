@@ -202,13 +202,23 @@ function Zip(){const cen=[];let off=0;const u16=(v)=>[v&255,v>>8&255],u32=v=>[v&
 function itemBytes(it){return it.dataUrl?b64bytes(it.dataUrl):utf8(/\.csv$/.test(it.nome)&&it.texto[0]!=='\ufeff'?'\ufeff'+it.texto:it.texto);}
 
 // v4.1: editar registro do Histórico
-function podeEditar(r,u){u=u||{};if(!r)return false;if(!u.on)return true;if(u.admin)return true;if(!ehMeu(r,u))return false;return u.now==null||dentroJanela(r,u.now);}
+function podeEditar(r,u){u=u||{};if(!r)return false;if(!u.on)return true;if(u.admin)return true;if(!ehMeu(r,u))return false;return u.now==null||dentroJanela(r,u.now,u.janela);}
 // v4.3.3: logins ADM / Colaborador, 1 hora para o colaborador editar e pedido de edição
 const JANELA_MS=3600000,REG_FIXOS=['criadoEm','criadoMs','liberadoAte','liberadoMs','autorLogin'];
 function ehMeu(r,u){u=u||{};if(!r)return false;return (!!u.uid&&r.autorUid===u.uid)||(!!u.login&&!!r.autorLogin&&r.autorLogin===u.login);}
 function criadoBase(r){return Number(r&&r.criadoMs)||(r&&!r.nuvem?Number(r.ts)||0:0);}
-function dentroJanela(r,now){if(!r)return false;const c=criadoBase(r);return (c>0&&now<c+JANELA_MS)||(Number(r.liberadoMs)>now);}
-function limiteEdicao(r){const c=criadoBase(r);return Math.max(c?c+JANELA_MS:0,Number(r&&r.liberadoMs)||0);}
+function dentroJanela(r,now,j){if(!r)return false;j=j||JANELA_MS;const c=criadoBase(r);return (c>0&&now<c+j)||(Number(r.liberadoMs)>now);}
+function limiteEdicao(r,j){j=j||JANELA_MS;const c=criadoBase(r);return Math.max(c?c+j:0,Number(r&&r.liberadoMs)||0);}
+// v4.3.4: tempo para o colaborador editar, escolhido pelo ADM em ⚙️ Configurações (padrão 1 hora)
+const JANELA_OPCOES=[30,60,120,480,1440];
+function janelaOk(min){return JANELA_OPCOES.includes(Number(min));}
+function janelaMs(min){return janelaOk(min)?Number(min)*60000:JANELA_MS;}
+function janelaNome(min){min=janelaOk(min)?Number(min):60;return min<60?min+' minutos':(min===60?'1 hora':(min/60)+' horas');}
+// v4.3.4: ✍️ Criar meu acesso — pedido de acesso (fica aguardando o ADM liberar)
+function acessoPedido(nome,u,senha,uid,now){nome=String(nome||'').trim().slice(0,60);u=loginNorm(u);
+  if(!nome)return {erro:'Digite seu nome'};if(!loginValido(u))return {erro:'Usuário com 3 a 30 letras ou números'};if(String(senha||'').length<6)return {erro:'Senha com pelo menos 6 letras/números'};
+  return {u,doc:{nome,uid:String(uid||''),ts:now||Date.now()},seg:{hash:loginHash(u,senha)}};}
+function acessoTxt(p){return '✍️ Pedido de acesso: '+String(p&&p.nome||'')+(p&&p.u?' ('+p.u+')':'');}
 function podePedir(r,u){u=u||{};return !!(r&&u.on&&!u.admin&&ehMeu(r,u)&&!podeEditar(r,u));}
 function loginNorm(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'.').replace(/[^a-z0-9._-]/g,'');}
 function loginValido(s){return /^[a-z0-9][a-z0-9._-]{2,29}$/.test(String(s||''));}
@@ -408,5 +418,5 @@ function probCriar(o){o=o||{};const t=String(o.txt||'').trim().slice(0,PROB_TXT_
 function probFilaAdd(f,p){f=Array.isArray(f)?f.slice():[];if(p)f.push(p);return f.slice(-PROB_FILA_MAX);}
 function probPlataforma(ua,android){ua=String(ua||'');if(android)return 'Android (app)';if(/iPhone|iPad|iPod/.test(ua))return 'iPhone';if(/Android/.test(ua))return 'Android (site)';return 'Navegador';}
 
-const L={JANELA_MS,REG_FIXOS,ehMeu,criadoBase,dentroJanela,limiteEdicao,podePedir,loginNorm,loginValido,loginHash,papelNome,pedidoCriar,pedidoTxt,ERROS_MAX,PROB_TXT_MAX,PROB_FILA_MAX,PROB_IMG_MAX,errosAdd,probCriar,probFilaAdd,probPlataforma,SCAN_MODOS,FORMATOS_BARRA,scanModoOk,scanChave,formatosModo,zxFormatosModo,modoAceitaFormato,candsModo,RASC_FOTOS,rascTem,rascSeparar,rascJuntar,estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
+const L={JANELA_MS,JANELA_OPCOES,janelaOk,janelaMs,janelaNome,acessoPedido,acessoTxt,REG_FIXOS,ehMeu,criadoBase,dentroJanela,limiteEdicao,podePedir,loginNorm,loginValido,loginHash,papelNome,pedidoCriar,pedidoTxt,ERROS_MAX,PROB_TXT_MAX,PROB_FILA_MAX,PROB_IMG_MAX,errosAdd,probCriar,probFilaAdd,probPlataforma,SCAN_MODOS,FORMATOS_BARRA,scanModoOk,scanChave,formatosModo,zxFormatosModo,modoAceitaFormato,candsModo,RASC_FOTOS,rascTem,rascSeparar,rascJuntar,estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);

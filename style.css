@@ -53,3 +53,4 @@ nav button.on{background:#0b4f8a;color:#fff;border-bottom:4px solid #3f8a5f}
 /* v4.3.0 tipo de leitura */
 .scModos{display:flex;gap:6px;margin:8px 0 4px;pointer-events:auto}.scModos button{flex:1;font-size:14px;font-weight:bold;padding:8px 4px;border-radius:10px;border:2px solid #fff;background:rgba(0,0,0,.55);color:#fff}.scModos button.on{background:#1b8a3a;border-color:#3f3}
 .scTop small{display:block}
+nav.seis{grid-template-columns:repeat(6,minmax(0,1fr))}nav.seis button .ni{font-size:20px}nav.seis button .nl{font-size:clamp(9px,2.6vw,14px);letter-spacing:-.3px}

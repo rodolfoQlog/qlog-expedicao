@@ -1,7 +1,7 @@
 // v4.0 — Nuvem compartilhada (Firebase Firestore + Auth anônimo). Só liga se firebase-config.js estiver preenchido.
 // Papéis (v4.3.3): ADM pode tudo; colaborador cria, vê e edita o seu por 1 hora. Senha da equipe é conferida no servidor (regras), nunca guardada em texto.
 (function(){
-const N={on:false,uid:null,admin:false,membro:false,login:'',dono:false,papel:'',pedidos:[],nome:localStorage.getItem('nvNome')||'',erro:'',fs:null,unsub:[]};
+const N={on:false,uid:null,admin:false,membro:false,login:'',dono:false,papel:'',pedidos:[],acessos:[],janelaMin:Number(localStorage.getItem('janMin'))||60,nome:localStorage.getItem('nvNome')||'',erro:'',fs:null,unsub:[]};
 window.Nuvem=N;
 const cfgOk=()=>!!(window.QLOG_FB&&window.QLOG_FB.projectId&&window.firebase);
 N.ativo=()=>cfgOk();
@@ -26,7 +26,7 @@ async function papel(){N.admin=false;N.membro=false;
   N.status();}
 N.status=()=>{setTimeout(()=>N.enviarFila&&N.enviarFila(),1500);N.checado=true;if(window.nvMudou)window.nvMudou();};
 // primeira abertura. v4.3.3: usuário + senha (criados pelo ADM em 👥 Equipe); a senha de acesso antiga continua valendo
-N.pedirEntrada=(equipe)=>{const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;m.dataset.nv='1';
+N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esperar();const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;m.dataset.nv='1';
   const cria=N.existe===false,velho=cria||equipe===true;const ic='<img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">';
   if(velho)m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">Identifique-se para acesso</b>
    <label>Seu nome</label><input id="nvN" value="${(N.nome||'').replace(/"/g,'&quot;')}" style="width:100%;font-size:20px">
@@ -37,10 +37,11 @@ N.pedirEntrada=(equipe)=>{const m=document.getElementById('modal');if(!m||m.clas
    <label>Usuário</label><input id="nvU" autocapitalize="none" autocomplete="username" style="width:100%;font-size:20px">
    <label>Senha</label><input id="nvS" type="password" autocomplete="current-password" style="width:100%;font-size:20px">
    <p id="nvE" style="color:#c62828"></p>
-   <button class="big ok" id="nvOk">✅ Entrar</button><button class="big alt" id="nvTroca">🔑 Entrar com a senha de acesso</button><button class="big alt" id="nvX">Agora não</button></div>`;
+   <button class="big ok" id="nvOk">✅ Entrar</button><button class="big" id="nvCriar">✍️ Criar meu acesso</button><button class="big alt" id="nvTroca">🔑 Entrar com a senha de acesso</button><button class="big alt" id="nvX">Agora não</button></div>`;
   m.classList.add('on');const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
   document.getElementById('nvX').onclick=fecha;
   const tr=document.getElementById('nvTroca');if(tr)tr.onclick=()=>{fecha();N.pedirEntrada(!velho);};
+  const cr=document.getElementById('nvCriar');if(cr)cr.onclick=()=>{fecha();N.criarMeuAcesso();};
   document.getElementById('nvOk').onclick=async()=>{const s=document.getElementById('nvS').value;const er=document.getElementById('nvE');
     if(velho){const nome=document.getElementById('nvN').value.trim();if(!nome)return er.textContent='Digite seu nome';if(!s)return er.textContent='Digite a senha';
       const h=L.senhaHash(s);er.textContent='Conferindo...';
@@ -54,7 +55,7 @@ N.pedirEntrada=(equipe)=>{const m=document.getElementById('modal');if(!m||m.clas
     try{await docM().set({nome:u,login:u,hash:L.loginHash(u,s),bloq:false,ts:Date.now()});fecha();await papel();toast('✅ Bem-vindo! Você entrou como '+(N.admin?'ADM':'colaborador'));}
     catch(e){er.textContent=/permission/i.test(String(e.code||e.message))?'Usuário ou senha errados, ou acesso bloqueado':'Sem internet. Tente de novo.';}};};
 // v4.3.3: sair / trocar de usuário neste celular
-N.sair=async()=>{try{N.unsub.forEach(f=>f());N.unsub=[];N.on=false;N.admin=false;N.membro=false;N.login='';N.papel='';await firebase.auth().signOut();}catch(e){}};
+N.sair=async()=>{try{N.unsub.forEach(f=>f());N.unsub=[];N.acessos=[];N.on=false;N.admin=false;N.membro=false;N.login='';N.papel='';await firebase.auth().signOut();}catch(e){}};
 // ouvir mudanças da nuvem -> grava no celular
 // v4.1: meses já arquivados (registros desses meses ficam nos celulares mesmo quando saem da nuvem)
 N.feitos=JSON.parse(localStorage.getItem('arqFeitos')||'[]');N.arquivos=JSON.parse(localStorage.getItem('arqLista')||'[]');
@@ -63,7 +64,8 @@ function ouvirArquivo(){return new Promise(ok=>{let p=false;const fim=()=>{if(!p
     N.arquivos=l;N.feitos=l.map(x=>x.mes);localStorage.setItem('arqFeitos',JSON.stringify(N.feitos));localStorage.setItem('arqLista',JSON.stringify(l));if(tab==='arquivo')render();fim();},()=>fim()));});}
 async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();
   if(N.admin)N.unsub.push(N.fs.collection('membros').onSnapshot(q=>{const o={};q.forEach(d=>{o[d.id]=d.data().nome||'';});N.nomes=o;if(tab==='hist')render();},()=>{}));
-  if(N.admin){ouvirAvisos();ouvirProblemas();ouvirPedidos();}else{N.avisos=[];N.problemas=[];N.pedidos=[];sinoMostrar();ouvirMeusPedidos();}
+  if(N.admin){ouvirAvisos();ouvirProblemas();ouvirPedidos();ouvirAcessos();}else{N.avisos=[];N.problemas=[];N.pedidos=[];N.acessos=[];sinoMostrar();ouvirMeusPedidos();}
+  ouvirAjustes();
   await ouvirArquivo();
   N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{const baixar=[];for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
       let loc=null;try{loc=await tx('readonly',s=>s.get(d.id));}catch(e){}if(!loc)loc=regs.find(r=>r.id===d.id);
@@ -132,9 +134,9 @@ N.logins=async()=>(await N.fs.collection('logins').get()).docs.map(d=>Object.ass
 N.criarLogin=async(nome,u,senha,papel)=>{const b=N.fs.batch();b.set(N.fs.doc('logins/'+u),{nome,papel:papel==='adm'?'adm':'colab',bloq:false,ts:Date.now()});b.set(N.fs.doc('loginSeg/'+u),{hash:L.loginHash(u,senha)});await b.commit();};
 N.mudarLogin=async(u,campos)=>N.fs.doc('logins/'+u).update(campos);
 N.senhaLogin=async(u,senha)=>N.fs.doc('loginSeg/'+u).set({hash:L.loginHash(u,senha)});
-N.painel=async()=>{const m=document.getElementById('modal');let ms=[],ls=[];try{[ms,ls]=await Promise.all([N.membros(),N.logins()]);}catch(e){return toast('Sem internet ou regras da nuvem ainda não atualizadas');}
+N.painel=async(box)=>{const m=document.getElementById('modal');const A=box||m;let ms=[],ls=[];try{[ms,ls]=await Promise.all([N.membros(),N.logins()]);}catch(e){return toast('Sem internet ou regras da nuvem ainda não atualizadas');}
   const e=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');ls.sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
-  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">👥 Equipe</b>
+  A.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">👥 Equipe</b>
    ${ls.length?ls.map(x=>`<div class="card" style="margin:6px 0"><div style="font-size:19px"><b>${e(x.nome)}</b> <small>(${e(x.u)})</small>${x.bloq?' 🚫':''}<br>${L.papelNome(x.papel)}</div>
      <div class="row"><button class="big" data-lgp="${e(x.u)}" data-v="${x.papel==='adm'?'colab':'adm'}" style="margin:4px 6px 4px 0">${x.papel==='adm'?'👷 Tornar colaborador':'Tornar '+L.papelNome('adm')}</button>
      <button class="big ${x.bloq?'ok':'red'}" data-lgb="${e(x.u)}" data-v="${x.bloq?0:1}" style="margin:4px 0">${x.bloq?'✅ Liberar':'🚫 Bloquear'}</button></div>
@@ -148,31 +150,31 @@ N.painel=async()=>{const m=document.getElementById('modal');let ms=[],ls=[];try{
    <b style="font-size:19px;display:block;margin-top:10px">📱 Celulares conectados</b>
    ${ms.map(x=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:18px">${x.uid===N.uid?'📱 Este celular (ADM)':e(x.nome||'?')+' <small>'+(x.login?'('+e(x.login)+')':'(senha de acesso)')+'</small>'}${x.bloq?' 🚫':''}</span>${x.uid===N.uid?'':`<button class="big ${x.bloq?'ok':'red'}" data-nvb="${e(x.uid)}" data-v="${x.bloq?0:1}" style="flex:0 0 130px;margin:4px 0">${x.bloq?'Liberar':'Bloquear'}</button>`}</div>`).join('')}
    <label style="margin-top:10px">Senha de acesso (jeito antigo)</label><input id="nvNs" type="password" autocomplete="off" style="width:100%;font-size:20px">
-   <button class="big" id="nvTs">🔑 Trocar senha de acesso</button><p><small>Quem entrou com a senha de acesso é colaborador. Depois de trocar, terão que digitar a senha nova.</small></p><button class="big alt" id="nvF">Fechar</button></div>`;m.classList.add('on');
+   <button class="big" id="nvTs">🔑 Trocar senha de acesso</button><p><small>Quem entrou com a senha de acesso é colaborador. Depois de trocar, terão que digitar a senha nova.</small></p>${box?'':'<button class="big alt" id="nvF">Fechar</button>'}</div>`;if(!box)m.classList.add('on');
   const erro=x=>toast(/permission/i.test(String(x&&(x.code||x.message)))?'Sem permissão (regras da nuvem)':'Não consegui. Precisa de internet.');
-  m.querySelectorAll('[data-nvb]').forEach(b=>b.onclick=async()=>{try{await N.bloquear(b.dataset.nvb,b.dataset.v==='1');N.painel();}catch(x){erro(x);}});
-  m.querySelectorAll('[data-lgb]').forEach(b=>b.onclick=async()=>{try{await N.mudarLogin(b.dataset.lgb,{bloq:b.dataset.v==='1'});N.painel();}catch(x){erro(x);}});
-  m.querySelectorAll('[data-lgp]').forEach(b=>b.onclick=async()=>{try{await N.mudarLogin(b.dataset.lgp,{papel:b.dataset.v});N.painel();}catch(x){erro(x);}});
-  m.querySelectorAll('[data-lgs]').forEach(b=>b.onclick=async()=>{const s=prompt('Nova senha para '+b.dataset.lgs+' (pelo menos 6)');if(s==null)return;if(s.length<6)return toast('Senha com pelo menos 6 letras/números');
+  A.querySelectorAll('[data-nvb]').forEach(b=>b.onclick=async()=>{try{await N.bloquear(b.dataset.nvb,b.dataset.v==='1');N.painel(box);}catch(x){erro(x);}});
+  A.querySelectorAll('[data-lgb]').forEach(b=>b.onclick=async()=>{try{await N.mudarLogin(b.dataset.lgb,{bloq:b.dataset.v==='1'});N.painel(box);}catch(x){erro(x);}});
+  A.querySelectorAll('[data-lgp]').forEach(b=>b.onclick=async()=>{try{await N.mudarLogin(b.dataset.lgp,{papel:b.dataset.v});N.painel(box);}catch(x){erro(x);}});
+  A.querySelectorAll('[data-lgs]').forEach(b=>b.onclick=async()=>{const s=prompt('Nova senha para '+b.dataset.lgs+' (pelo menos 6)');if(s==null)return;if(s.length<6)return toast('Senha com pelo menos 6 letras/números');
     try{await N.senhaLogin(b.dataset.lgs,s);toast('✅ Senha trocada. Ele precisa entrar de novo.');}catch(x){erro(x);}});
   document.getElementById('lgCriar').onclick=async()=>{const nome=document.getElementById('lgN').value.trim(),u=L.loginNorm(document.getElementById('lgU').value),s=document.getElementById('lgS').value,p=document.getElementById('lgP').value;
     if(!nome)return toast('Digite o nome');if(!L.loginValido(u))return toast('Usuário com 3 a 30 letras ou números');if(s.length<6)return toast('Senha com pelo menos 6 letras/números');
     if(ls.some(x=>x.u===u))return toast('Esse usuário já existe');
-    try{await N.criarLogin(nome,u,s,p);toast('✅ Acesso criado: '+u);N.painel();}catch(x){erro(x);}};
+    try{await N.criarLogin(nome,u,s,p);toast('✅ Acesso criado: '+u);N.painel(box);}catch(x){erro(x);}};
   document.getElementById('nvTs').onclick=async()=>{const s=document.getElementById('nvNs').value;if(s.trim().length<6)return toast('Senha com pelo menos 6 letras/números');
-    try{await N.trocarSenha(s);toast('✅ Senha trocada');m.classList.remove('on');}catch(e){toast('Não consegui trocar. Precisa de internet.');}};
-  document.getElementById('nvF').onclick=()=>m.classList.remove('on');};
+    try{await N.trocarSenha(s);toast('✅ Senha trocada');if(!box)m.classList.remove('on');}catch(e){toast('Não consegui trocar. Precisa de internet.');}};
+  const nf=document.getElementById('nvF');if(nf)nf.onclick=()=>m.classList.remove('on');};
 // v4.2.6: avisos de alteração no histórico (só o dono da equipe vê; os avisos dele mesmo nem são criados)
 N.avisos=[];
 N.avisar=async(acao,antes,depois)=>{if(!N.on||N.admin)return;try{const a=L.avisoCriar(acao,antes,depois,{uid:N.uid,nome:N.nome},N.adminUid,Date.now());
   if(a)await N.fs.collection('avisos').add(a);}catch(e){}};
-function sinoMostrar(){const b=document.getElementById('sino');if(!b)return;const n=N.admin?N.avisos.length+(N.problemas||[]).length+(N.pedidos||[]).length:0;b.style.display=n?'inline-block':'none';b.textContent='🔔 '+n;}
-function banner(t){let b=document.getElementById('avBanner');if(!b){b=document.createElement('div');b.id='avBanner';document.body.appendChild(b);b.onclick=()=>{b.style.display='none';N.verAvisos();};}
+function sinoMostrar(){const b=document.getElementById('sino');if(!b)return;const n=N.admin?N.avisos.length+(N.problemas||[]).length+(N.pedidos||[]).length+(N.acessos||[]).length:0;b.style.display=n?'inline-block':'none';b.textContent='🔔 '+n;}
+function banner(t){let b=document.getElementById('avBanner');if(!b){b=document.createElement('div');b.id='avBanner';document.body.appendChild(b);b.onclick=()=>{b.style.display='none';if(window.abrirAdm&&N.admin)window.abrirAdm('av');else N.verAvisos();};}
   b.textContent='🔔 '+t;b.style.display='block';clearTimeout(b._h);b._h=setTimeout(()=>b.style.display='none',8000);}
 function ouvirAvisos(){let primeiro=true;
   N.unsub.push(N.fs.collection('avisos').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({id:d.id},d.data())));l.sort((a,b)=>(b.ts||0)-(a.ts||0));N.avisos=l;
     if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites);if(novos.length)banner(novos.length>1?novos.length+' alterações novas no histórico':L.avisoTxt(novos[0].doc.data()));}
-    primeiro=false;sinoMostrar();const m=document.getElementById('modal');if(m&&m.dataset.av&&m.classList.contains('on'))N.verAvisos();},()=>{}));}
+    primeiro=false;sinoMostrar();avAtualizar();},()=>{}));}
 N.confirmarAviso=async id=>{await N.fs.doc('avisos/'+id).delete();};
 N.confirmarTodos=async()=>{const ids=N.avisos.map(a=>a.id);for(let i=0;i<ids.length;i+=400){const b=N.fs.batch();ids.slice(i,i+400).forEach(id=>b.delete(N.fs.doc('avisos/'+id)));await b.commit();}};
 // v4.3.1: 🐞 problemas relatados — qualquer celular do app envia; só o dono da equipe vê e apaga
@@ -186,32 +188,36 @@ window.addEventListener('online',()=>N.enviarFila());
 function ouvirProblemas(){let primeiro=true;
   N.unsub.push(N.fs.collection('problemas').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({id:d.id},d.data())));l.sort((a,b)=>(b.ts||0)-(a.ts||0));N.problemas=l;
     if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites);if(novos.length)banner(novos.length>1?novos.length+' problemas relatados':'🐞 Problema relatado: '+String(novos[0].doc.data().txt||'').slice(0,60));}
-    primeiro=false;sinoMostrar();const m=document.getElementById('modal');if(m&&m.dataset.av&&m.classList.contains('on'))N.verAvisos();},()=>{}));}
+    primeiro=false;sinoMostrar();avAtualizar();},()=>{}));}
 N.resolverProblema=async id=>{await N.fs.doc('problemas/'+id).delete();};
 function probHTML(e){const l=N.problemas||[];if(!l.length)return '';
   return '<b style="font-size:21px;display:block;margin:12px 0 6px">🐞 Problemas relatados</b>'+l.map(p=>`<div class="card" style="margin:6px 0;border-left:5px solid #c62828"><div style="font-size:18px;white-space:pre-wrap"><b>${e(p.txt)}</b></div>
    <small>${p.ts?L.fmtData(p.ts)+' às '+L.fmtHora(p.ts):''}${p.quem?' · '+e(p.quem):''}</small><details style="margin:6px 0"><summary>Detalhes</summary><small>Versão ${e(p.versao)} · ${e(p.plataforma)} · tela: ${e(p.tela)}<br>${e(p.aparelho)}</small>
    ${(p.erros||[]).length?'<ul style="margin:6px 0;padding-left:20px;font-size:13px">'+p.erros.map(x=>'<li>'+(x.ts?L.fmtHora(x.ts)+' ':'')+e(x.m)+(x.o?' ('+e(x.o)+')':'')+'</li>').join('')+'</ul>':'<p><small>Nenhum erro registrado.</small></p>'}</details>
    ${p.img?`<img src="${e(p.img)}" style="max-width:100%;max-height:300px;margin:4px 0">`:''}<button class="big ok" data-probok="${e(p.id)}">✅ Resolvido</button></div>`).join('');}
-N.verAvisos=()=>{const m=document.getElementById('modal');if(!m)return;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');m.dataset.av='1';
-  const fecha=()=>{m.classList.remove('on');delete m.dataset.av;};
-  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">🔔 Alterações no histórico</b>
+N.verAvisos=(box)=>{const m=document.getElementById('modal');if(!m)return;const A=box||m;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');if(!box)m.dataset.av='1';
+  const fecha=()=>{if(box)return;m.classList.remove('on');delete m.dataset.av;};
+  A.innerHTML=`<div style="max-height:85vh;overflow:auto">${acHTML(e)}<b style="font-size:22px;display:block;margin-bottom:8px">🔔 Alterações no histórico</b>
    ${N.avisos.length?N.avisos.map(a=>`<div class="card" style="margin:6px 0"><div style="font-size:18px"><b>${e(L.avisoTxt(a))}</b></div><small>${a.ts?L.fmtData(a.ts)+' às '+L.fmtHora(a.ts):''}</small>${(a.mud||[]).length?'<ul style="margin:6px 0;padding-left:20px">'+a.mud.map(x=>'<li>'+e(x)+'</li>').join('')+'</ul>':''}<button class="big ok" data-avok="${e(a.id)}">✅ Confirmar</button></div>`).join('')+'<button class="big ok" id="avTodos">✅ Confirmar todos</button>':'<p>Nenhuma alteração nova.</p>'}${pedHTML(e)}${probHTML(e)}
-   <button class="big alt" id="avF">Fechar</button></div>`;m.classList.add('on');
-  m.querySelectorAll('[data-avok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.confirmarAviso(b.dataset.avok);}catch(x){b.disabled=false;toast('Sem internet');}});
-  m.querySelectorAll('[data-probok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.resolverProblema(b.dataset.probok);}catch(x){b.disabled=false;toast('Sem internet');}});
-  m.querySelectorAll('[data-pdok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.liberarPedido(b.dataset.pdok);toast('✅ Liberado por 1 hora');}catch(x){b.disabled=false;toast('Sem internet');}});
-  m.querySelectorAll('[data-pdno]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.recusarPedido(b.dataset.pdno);toast('❌ Recusado');}catch(x){b.disabled=false;toast('Sem internet');}});
+   ${box?'':'<button class="big alt" id="avF">Fechar</button>'}</div>`;if(!box)m.classList.add('on');
+  A.querySelectorAll('[data-avok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.confirmarAviso(b.dataset.avok);}catch(x){b.disabled=false;toast('Sem internet');}});
+  A.querySelectorAll('[data-probok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.resolverProblema(b.dataset.probok);}catch(x){b.disabled=false;toast('Sem internet');}});
+  A.querySelectorAll('[data-pdok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.liberarPedido(b.dataset.pdok);toast('✅ Liberado por '+L.janelaNome(N.janelaMin));}catch(x){b.disabled=false;toast('Sem internet');}});
+  A.querySelectorAll('[data-pdno]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.recusarPedido(b.dataset.pdno);toast('❌ Recusado');}catch(x){b.disabled=false;toast('Sem internet');}});
   const t=document.getElementById('avTodos');if(t)t.onclick=async()=>{t.disabled=true;try{await N.confirmarTodos();fecha();toast('✅ Confirmados');}catch(x){t.disabled=false;toast('Sem internet');}};
-  document.getElementById('avF').onclick=fecha;};
-document.addEventListener('click',ev=>{if(ev.target.closest('#sino')){ev.preventDefault();N.verAvisos();}});
+  A.querySelectorAll('[data-acok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.aprovarAcesso(b.dataset.acok,b.dataset.p);toast('✅ Acesso liberado como '+L.papelNome(b.dataset.p));}catch(x){b.disabled=false;toast('Sem internet');}});
+  A.querySelectorAll('[data-acno]').forEach(b=>b.onclick=()=>{const u=b.dataset.acno;const c=window.confirmar||((t,f)=>{if(confirm(t))f();});
+    c('Recusar o pedido de acesso de '+u+'?',async()=>{try{await N.recusarAcesso(u);toast('❌ Pedido recusado');}catch(x){toast('Sem internet');}},'Sim, recusar','red','Cancelar');});
+  const fb=document.getElementById('avF');if(fb)fb.onclick=fecha;};
+function avAtualizar(){const m=document.getElementById('modal');if(m&&m.dataset.av&&m.classList.contains('on'))N.verAvisos();if(window.admAtualizar)window.admAtualizar('av');}
+document.addEventListener('click',ev=>{if(ev.target.closest('#sino')){ev.preventDefault();if(window.abrirAdm&&N.admin)window.abrirAdm('av');else N.verAvisos();}});
 // v4.3.3: 📝 pedidos de edição (colaborador pede depois de 1 hora; o ADM libera mais 1 hora ou recusa; depois o pedido é apagado)
 N.pedirEdicao=async(r,txt,motivo)=>{const p=L.pedidoCriar(r,{uid:N.uid,nome:N.nome},txt,motivo,Date.now());if(!p)throw new Error('dados');await N.fs.collection('pedidos').add(p);};
 function ouvirPedidos(){let primeiro=true;
   N.unsub.push(N.fs.collection('pedidos').onSnapshot(q=>{const l=[];q.forEach(d=>{const x=d.data();if(x.estado==='aberto')l.push(Object.assign({id:d.id},x));});l.sort((a,b)=>(b.ts||0)-(a.ts||0));N.pedidos=l;
     if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites&&c.doc.data().estado==='aberto');if(novos.length)banner(novos.length>1?novos.length+' pedidos de edição':L.pedidoTxt(novos[0].doc.data()));}
-    primeiro=false;sinoMostrar();const m=document.getElementById('modal');if(m&&m.dataset.av&&m.classList.contains('on'))N.verAvisos();},()=>{}));}
-N.liberarPedido=async id=>{const p=N.pedidos.find(x=>x.id===id);if(!p)return;const ate=Date.now()+L.JANELA_MS;const b=N.fs.batch();
+    primeiro=false;sinoMostrar();avAtualizar();},()=>{}));}
+N.liberarPedido=async id=>{const p=N.pedidos.find(x=>x.id===id);if(!p)return;const ate=Date.now()+L.janelaMs(N.janelaMin);const b=N.fs.batch();
   b.update(N.fs.doc('registros/'+p.regId),{liberadoAte:firebase.firestore.Timestamp.fromMillis(ate),liberadoMs:ate});b.delete(N.fs.doc('pedidos/'+id));await b.commit();};
 N.recusarPedido=async id=>{await N.fs.doc('pedidos/'+id).update({estado:'recusado',respTs:Date.now()});};
 function pedHTML(e){const l=N.pedidos||[];if(!l.length)return '';
@@ -222,11 +228,72 @@ function pedHTML(e){const l=N.pedidos||[];if(!l.length)return '';
 function ouvirMeusPedidos(){const vistos={};
   N.unsub.push(N.fs.collection('pedidos').where('quemUid','==',N.uid).onSnapshot(q=>{
     q.docChanges().forEach(c=>{const x=c.doc.data();
-      if(c.type==='removed'&&x.estado==='aberto'&&!vistos[c.doc.id])toast('✅ Edição liberada por 1 hora: '+(x.codigo||''));
+      if(c.type==='removed'&&x.estado==='aberto'&&!vistos[c.doc.id])toast('✅ Edição liberada: '+(x.codigo||''));
       else if(c.type!=='removed'&&x.estado==='recusado'&&!vistos[c.doc.id]){vistos[c.doc.id]=1;recusaAviso(c.doc.id,x);}});},()=>{}));}
 function recusaAviso(id,x){const m=document.getElementById('modal');if(!m)return;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
   const mostra=()=>{if(m.classList.contains('on'))return setTimeout(mostra,3000);
     m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:8px">❌ Pedido de edição recusado</b><p style="font-size:19px">O ADM recusou o seu pedido para editar <b>${e(x.codigo)}</b>.</p><p><small>${e(x.txt)}</small></p><button class="big ok" id="rcOk">Entendi</button></div>`;
     m.classList.add('on');document.getElementById('rcOk').onclick=async()=>{m.classList.remove('on');try{await N.fs.doc('pedidos/'+id).delete();}catch(e){}};};mostra();}
+// v4.3.4: ✍️ Criar meu acesso — a pessoa pede o acesso e fica ⏳ aguardando o ADM liberar (sem ver nenhum registro até lá)
+const PEND='pendAcesso';
+function pendGet(){try{return JSON.parse(localStorage.getItem(PEND)||'null');}catch(e){return null;}}
+function pendLimpar(){localStorage.removeItem(PEND);if(N._pendOff){N._pendOff();N._pendOff=null;}}
+N.criarMeuAcesso=()=>{const m=document.getElementById('modal');if(!m)return;m.dataset.nv='1';
+  m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">✍️ Criar meu acesso</b>
+   <label>Seu nome</label><input id="caN" style="width:100%;font-size:20px">
+   <label>Usuário (sem espaço)</label><input id="caU" autocapitalize="none" autocomplete="username" style="width:100%;font-size:20px">
+   <label>Senha (pelo menos 6)</label><input id="caS" type="password" autocomplete="new-password" style="width:100%;font-size:20px">
+   <label>Repita a senha</label><input id="caS2" type="password" autocomplete="new-password" style="width:100%;font-size:20px">
+   <p><small>O ADM precisa liberar o seu acesso antes de você usar o app.</small></p><p id="caE" style="color:#c62828"></p>
+   <button class="big ok" id="caOk">✍️ Pedir acesso</button><button class="big alt" id="caX">Voltar</button></div>`;
+  m.classList.add('on');const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
+  document.getElementById('caX').onclick=()=>{fecha();N.pedirEntrada(false);};
+  document.getElementById('caOk').onclick=async()=>{const er=document.getElementById('caE'),s=document.getElementById('caS').value;
+    if(s!==document.getElementById('caS2').value)return er.textContent='As senhas não são iguais';
+    const p=L.acessoPedido(document.getElementById('caN').value,document.getElementById('caU').value,s,N.uid,Date.now());if(p.erro)return er.textContent=p.erro;
+    if(!N.fs||!N.uid)return er.textContent='Sem internet. Tente de novo.';er.textContent='Enviando...';
+    try{const b=N.fs.batch();b.set(N.fs.doc('loginSeg/'+p.u),p.seg);b.set(N.fs.doc('pendentes/'+p.u),p.doc);await b.commit();}
+    catch(e){er.textContent=/permission/i.test(String(e.code||e.message))?'Esse usuário já existe ou já foi pedido. Escolha outro.':'Sem internet. Tente de novo.';return;}
+    localStorage.setItem(PEND,JSON.stringify({u:p.u,nome:p.doc.nome,h:p.seg.hash}));N.nome=p.doc.nome;localStorage.setItem('nvNome',p.doc.nome);fecha();N.esperar();};};
+// tela de espera; quando o ADM decide, o pedido some da nuvem: se liberou, este celular entra sozinho; se recusou, avisa
+N.esperar=()=>{const pd=pendGet(),m=document.getElementById('modal');if(!pd||!m)return;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');m.dataset.nv='1';
+  m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">⏳ Aguardando liberação</b>
+   <p style="font-size:19px">Seu pedido de acesso como <b>${e(pd.u)}</b> foi enviado. Assim que o ADM liberar, o app abre sozinho.</p>
+   <p id="peE" style="color:#0b4f8a"></p><button class="big ok" id="peV">🔄 Verificar agora</button><button class="big red" id="peC">❌ Cancelar pedido</button></div>`;
+  m.classList.add('on');
+  document.getElementById('peV').onclick=()=>checarPend(true);
+  document.getElementById('peC').onclick=async()=>{if(!confirm('Cancelar o seu pedido de acesso?'))return;
+    try{const b=N.fs.batch();b.delete(N.fs.doc('pendentes/'+pd.u));b.delete(N.fs.doc('loginSeg/'+pd.u));await b.commit();}catch(x){}
+    pendLimpar();m.classList.remove('on');delete m.dataset.nv;N.pedirEntrada(false);};
+  if(N.fs&&N.uid&&!N._pendOff)N._pendOff=N.fs.doc('pendentes/'+pd.u).onSnapshot(d=>{if(d.metadata.fromCache)return;if(!d.exists)checarPend();},()=>{});};
+let checando=false;
+async function checarPend(manual){const pd=pendGet();if(!pd||!N.fs||!N.uid||checando)return;checando=true;const er=document.getElementById('peE');
+  try{let d=null;try{d=await N.fs.doc('pendentes/'+pd.u).get({source:'server'});}catch(x){if(er)er.textContent='Sem internet. Tente de novo.';return;}
+    if(d.exists){if(er&&manual)er.textContent='Ainda aguardando o ADM.';return;}
+    try{await docM().set({nome:pd.nome||pd.u,login:pd.u,hash:pd.h,bloq:false,ts:Date.now()});}
+    catch(x){if(/permission/i.test(String(x.code||x.message))){pendLimpar();recusado(pd);}else if(er)er.textContent='Sem internet. Tente de novo.';return;}
+    pendLimpar();const m=document.getElementById('modal');m.classList.remove('on');delete m.dataset.nv;await papel();toast('✅ Acesso liberado! Você entrou como '+(N.admin?'ADM':'colaborador'));}
+  finally{checando=false;}}
+function recusado(pd){const m=document.getElementById('modal');const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');m.dataset.nv='1';
+  m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:8px">❌ Acesso recusado</b><p style="font-size:19px">O ADM recusou o pedido de acesso de <b>${e(pd.u)}</b>.</p><button class="big ok" id="reOk">Entendi</button></div>`;
+  m.classList.add('on');document.getElementById('reOk').onclick=()=>{m.classList.remove('on');delete m.dataset.nv;N.pedirEntrada(false);};}
+// ADM: pedidos de acesso chegam no 🔔 (e na aba ⚙️ ADM) com 👷 Colaborador, ADM ou ❌ Recusar
+function ouvirAcessos(){let primeiro=true;
+  N.unsub.push(N.fs.collection('pendentes').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({u:d.id},d.data())));l.sort((a,b)=>(b.ts||0)-(a.ts||0));N.acessos=l;
+    if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites);if(novos.length)banner(novos.length>1?novos.length+' pedidos de acesso':L.acessoTxt(Object.assign({u:novos[0].doc.id},novos[0].doc.data())));}
+    primeiro=false;sinoMostrar();avAtualizar();},()=>{}));}
+N.aprovarAcesso=async(u,p)=>{const x=N.acessos.find(a=>a.u===u);if(!x)return;const b=N.fs.batch();
+  b.set(N.fs.doc('logins/'+u),{nome:String(x.nome||u).slice(0,60),papel:p==='adm'?'adm':'colab',bloq:false,ts:Date.now()});b.delete(N.fs.doc('pendentes/'+u));await b.commit();};
+N.recusarAcesso=async u=>{const b=N.fs.batch();b.delete(N.fs.doc('pendentes/'+u));b.delete(N.fs.doc('loginSeg/'+u));await b.commit();};
+function acHTML(e){const l=N.acessos||[];if(!l.length)return '';
+  return '<b style="font-size:21px;display:block;margin:0 0 6px">✍️ Pedidos de acesso</b>'+l.map(p=>`<div class="card" style="margin:6px 0;border-left:5px solid #3f8a5f"><div style="font-size:19px"><b>${e(p.nome)}</b> <small>(${e(p.u)})</small></div>
+   <small>${p.ts?L.fmtData(p.ts)+' às '+L.fmtHora(p.ts):''}</small><p style="margin:4px 0">Liberar como:</p>
+   <div class="row"><button class="big ok" data-acok="${e(p.u)}" data-p="colab" style="margin:4px 6px 4px 0">${L.papelNome('colab')}</button><button class="big" data-acok="${e(p.u)}" data-p="adm" style="margin:4px 0">${L.papelNome('adm')}</button></div>
+   <button class="big red" data-acno="${e(p.u)}">❌ Recusar</button></div>`).join('');}
+// v4.3.4: ⚙️ Configurações da nuvem (tempo para o colaborador editar) — todos leem, só o ADM muda
+function ouvirAjustes(){N.unsub.push(docE().onSnapshot(d=>{const x=d.exists?d.data():{};const v=('janelaMin' in x)?Number(x.janelaMin):60;N.janelaMin=L.janelaOk(v)?v:60;localStorage.setItem('janMin',String(N.janelaMin));
+  if(window.admAtualizar)window.admAtualizar('cfg');},()=>{}));}
+N.janelaMs=()=>L.janelaMs(N.janelaMin);
+N.salvarJanela=async min=>{if(!L.janelaOk(min))throw new Error('valor');await docE().update({janelaMin:Number(min)});N.janelaMin=Number(min);localStorage.setItem('janMin',String(min));};
 N.iniciar=iniciar;
 })();

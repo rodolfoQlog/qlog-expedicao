@@ -47,7 +47,7 @@ function confirmar(msg,sim,lb,cor,nao){const m=$('#modal');m.innerHTML=`<div><p 
 function compress(file){return new Promise(ok=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement('canvas');
   c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',0.75));};i.onerror=()=>ok(null);i.src=u;});}
 function fotosHTML(arr,key,edit){return '<div class="fotos">'+arr.map((d,i)=>`<div><img src="${d}">${edit?`<b data-del="${key}" data-i="${i}">✕</b>`:''}</div>`).join('')+'</div>';}
-function render(){if(tab!=='sobre')telaAnt=tab;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));({nova,hist,rel,sobre,loc,arquivo:arquivoTela})[tab]();}
+function render(){if(tab!=='sobre')telaAnt=tab;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));navAdm();if(tab==='adm'&&!admOn())tab='nova';({nova,hist,rel,sobre,loc,arquivo:arquivoTela,adm:admTela})[tab]();}
 function nova(){if(f.tipo==='recebimento')return novaRec();const cl=clientes();$('#main').innerHTML=tipoRow()+`
 ${f.tipo==='estorno'?estCab():''}<label>Transportadora</label><div class="cli">${cl.map(c=>`<button data-cli="${esc(c)}" class="${f.cliente===c?'on':''}"${f.cliente===c?autoCls('cliente'):''}>${esc(c)}</button>`).join('')}<button id="addCli">➕ Nova transportadora</button></div>
 <label>NFs (separe com - ou espaço)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs aqui" value="${esc(f.nfs)}"${autoCls('nfs')}>${autoDica('nfs')}
@@ -255,8 +255,8 @@ function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=
 let ed=null;
 // v4.3.3: botões do registro conforme o papel (ADM / Colaborador): 1 hora para editar o seu, depois 📝 Pedir edição
 function botoesEd(r){const u=usuario(),nv=window.Nuvem&&Nuvem.ativo()&&u.on;let h='';
-  if(L.podeEditar(r,u)){h+='<button class="big" id="editar">✏️ Editar</button>';if(nv&&!u.admin){const lim=L.limiteEdicao(r);if(lim)h+='<p style="text-align:center"><small>⏱ Você pode editar até '+L.fmtHora(lim)+'</small></p>';}}
-  else if(L.podePedir(r,u))h+='<button class="big" id="pedirEd">📝 Pedir edição</button><p style="text-align:center"><small>O prazo de 1 hora para editar acabou. Peça ao ADM.</small></p>';
+  if(L.podeEditar(r,u)){h+='<button class="big" id="editar">✏️ Editar</button>';if(nv&&!u.admin){const lim=L.limiteEdicao(r,u.janela);if(lim)h+='<p style="text-align:center"><small>⏱ Você pode editar até '+L.fmtHora(lim)+'</small></p>';}}
+  else if(L.podePedir(r,u))h+='<button class="big" id="pedirEd">📝 Pedir edição</button><p style="text-align:center"><small>O prazo de '+L.janelaNome(window.Nuvem&&Nuvem.janelaMin)+' para editar acabou. Peça ao ADM.</small></p>';
   if(!nv||u.admin)h+='<button class="big red" id="apagar">🗑 Apagar registro</button>';return h;}
 function ligarEd(r){const e=$('#editar');if(e)e.onclick=()=>confirmar('Deseja editar este registro?',()=>abrirEdicao(r),'Sim','ok','Cancelar');const p=$('#pedirEd');if(p)p.onclick=()=>pedirEdicaoModal(r);}
 function pedirEdicaoModal(r){const m=$('#modal');m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:8px">📝 Pedir edição · ${esc(L.codigo(r))}</b>
@@ -266,8 +266,9 @@ function pedirEdicaoModal(r){const m=$('#modal');m.innerHTML=`<div><b style="fon
   $('#peX').onclick=()=>m.classList.remove('on');
   $('#peOk').onclick=async()=>{const t=$('#peT').value.trim(),mo=$('#peM').value.trim();if(!t)return $('#peE').textContent='Escreva o que precisa mudar';if(!mo)return $('#peE').textContent='Escreva o motivo';
     $('#peOk').disabled=true;try{await Nuvem.pedirEdicao(r,t,mo);m.classList.remove('on');toast('✅ Pedido enviado ao ADM');}catch(x){$('#peOk').disabled=false;$('#peE').textContent='Não consegui enviar. Precisa de internet.';}};}
-function usuario(){const N=window.Nuvem;return {on:!!(N&&N.on),admin:!!(N&&N.admin),uid:N&&N.uid,login:N&&N.login||'',now:Date.now()};}
-function abrirEdicao(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r,usuario())?'O prazo de 1 hora acabou. Use 📝 Pedir edição':'Só quem fez o registro ou o ADM pode editar');
+function usuario(){const N=window.Nuvem;return {on:!!(N&&N.on),admin:!!(N&&N.admin),uid:N&&N.uid,login:N&&N.login||'',now:Date.now(),janela:N&&N.janelaMs?N.janelaMs():L.JANELA_MS};}
+const prazoTxt=()=>'O prazo de '+L.janelaNome(window.Nuvem&&Nuvem.janelaMin)+' acabou. Use 📝 Pedir edição';
+function abrirEdicao(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode editar');
   const vt=L.vtNorm(r.vtipos||{volume:r.volumes});
   ed={id:r.id,tipo:r.tipo,c:{cliente:r.cliente||'',nfs:(r.nfs||[]).join('-'),palete:vt.palete||'',volume:vt.volume||'',placa:r.placa||'',motorista:r.motorista||'',obs:r.obs||'',motivo:r.motivo||''},
     fotos:{fotos:(r.fotos||[]).slice(),romaneio:(r.romaneio||[]).slice(),caminhao:(r.caminhao||[]).slice(),mexeu:{}}};edTela();}
@@ -294,7 +295,7 @@ document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[d
 async function edSalvar(){edLer();const id=ed.id;
   // v4.0.5: lê o registro do celular (com as fotos) antes de mexer
   let r=null;try{r=await tx('readonly',s=>s.get(id));}catch(e){}if(!r)r=regs.find(x=>x.id===id);if(!r){ed=null;return render();}
-  if(!L.podeEditar(r,usuario())){ed=null;toast(L.podePedir(r,usuario())?'O prazo de 1 hora acabou. Use 📝 Pedir edição':'Só quem fez o registro ou o ADM pode editar');return render();}
+  if(!L.podeEditar(r,usuario())){ed=null;toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode editar');return render();}
   const c=Object.assign({},ed.c);if(ed.tipo==='recebimento'){delete c.palete;delete c.volume;delete c.placa;delete c.motorista;}
   const n=L.regEditar(r,c,ed.fotos,Date.now());const er=L.editValidar(n);if(er.length){$('#edErro').innerHTML=er.map(esc).join('<br>');return;}
   const salvo=(window.Nuvem&&!Nuvem.admin)?L.semAutor(n):n;
@@ -356,7 +357,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.3';let updNova=null,updChecou=0;
+const APP_V='4.3.4';let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();};
 function checarUpd(){if(Date.now()-updChecou<60000)return;updChecou=Date.now();try{if(window.AndroidUpd&&AndroidUpd.checar){AndroidUpd.checar();return;}
@@ -364,8 +365,26 @@ function checarUpd(){if(Date.now()-updChecou<60000)return;updChecou=Date.now();t
 async function atualizarApp(){if(window.AndroidUpd){updMsg('Procurando versão nova...',-1);AndroidUpd.verificar();return;}
   updMsg('Atualizando...',-1);try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.update().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
   location.replace(location.pathname+'?v='+Date.now());}
-window.nvMudou=()=>{if(tab==='sobre'&&!detalhe)render();};
-function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.3.3</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 01/11/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:12px">© 2026 Desenvolvedor Rodolfo Pereira</p></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.on?'<div class="card"><p style="font-size:19px;margin:4px 0">👤 '+esc(Nuvem.login||'Este celular')+' · '+L.papelNome(Nuvem.admin?'adm':'colab')+'</p>'+(Nuvem.dono?'':'<button class="big alt" id="nvSair">🚪 Sair / trocar usuário</button>')+'</div>':''}<div id="updBox">${updHTML()}</div><div class="card"><button class="big alt" id="probAbrir">🐞 Reportar problema</button></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.admin?`<div class="card">${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">👥 Equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
+window.nvMudou=()=>{if(tab==='sobre'&&!detalhe)render();else{navAdm();if(tab==='adm'&&!admOn())render();}};
+// v4.3.4: aba ⚙️ ADM (só aparece para ADM): 🔔 Avisos, 👥 Equipe e ⚙️ Configurações
+const admOn=()=>!!(window.Nuvem&&Nuvem.ativo()&&Nuvem.on&&Nuvem.admin);let admSub='av';
+function navAdm(){const b=document.querySelector('nav [data-t="adm"]');if(!b)return;const on=admOn();b.style.display=on?'':'none';document.querySelector('nav').classList.toggle('seis',on);}
+window.abrirAdm=sub=>{if(!admOn())return;admSub=sub||'av';tab='adm';detalhe=null;if($('#modal').classList.contains('on')&&!$('#modal').dataset.nv)$('#modal').classList.remove('on');render();};
+window.admAtualizar=sub=>{if(tab==='adm'&&admSub===sub&&!$('#modal').classList.contains('on'))admConteudo();};
+function admTela(){const b=(k,t)=>`<button class="big ${admSub===k?'ok':'alt'}" data-admsub="${k}" style="margin:4px 4px 4px 0;font-size:16px;padding:10px 4px">${t}</button>`;
+  $('#main').innerHTML=`<div class="row">${b('av','🔔 Avisos')}${b('eq','👥 Equipe')}${b('cfg','⚙️ Config.')}</div><div id="admBox"></div>`;admConteudo();}
+function admConteudo(){const bx=$('#admBox');if(!bx)return;if(admSub==='eq')return Nuvem.painel(bx);if(admSub==='cfg')return cfgTela(bx);Nuvem.verAvisos(bx);}
+function cfgTela(bx){const j=Nuvem.janelaMin||60;
+  bx.innerHTML=`<div class="card"><b style="font-size:20px">⏱ Tempo para o colaborador editar</b><p><small>Depois desse tempo, ele usa 📝 Pedir edição.</small></p>
+   <select id="cfgJan" style="width:100%;font-size:20px">${L.JANELA_OPCOES.map(m=>`<option value="${m}"${m===j?' selected':''}>${L.janelaNome(m)}</option>`).join('')}</select>
+   <button class="big ok" id="cfgJanOk">💾 Salvar tempo</button></div>
+   <div class="card"><b style="font-size:20px">🚚 Transportadoras</b><p><small>Valem para todos os celulares. Os registros antigos não mudam ao apagar.</small></p>
+   ${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhuma salva.</p>'}
+   <button class="big ok" id="cfgAddCli">➕ Adicionar transportadora</button></div>`;
+  $('#cfgJanOk').onclick=()=>{const v=Number($('#cfgJan').value);confirmar('Mudar o tempo para editar para '+L.janelaNome(v)+'?',async()=>{try{await Nuvem.salvarJanela(v);toast('✅ Tempo salvo: '+L.janelaNome(v));}catch(e){toast(/permission/i.test(String(e&&(e.code||e.message)))?'Sem permissão (regras da nuvem)':'Não consegui. Precisa de internet.');}render();},'Sim, salvar','ok','Cancelar');};
+  $('#cfgAddCli').onclick=()=>{const m=$('#modal');m.innerHTML='<div><label>Nome da transportadora</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
+    $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=clientes();if(c.includes(n))toast('Essa transportadora já existe');else{c.push(n);setClientes(c);toast('✅ Adicionada');}}m.classList.remove('on');render();};};}
+function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.3.4</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 01/11/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:12px">© 2026 Desenvolvedor Rodolfo Pereira</p></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.on?'<div class="card"><p style="font-size:19px;margin:4px 0">👤 '+esc(Nuvem.login||'Este celular')+' · '+L.papelNome(Nuvem.admin?'adm':'colab')+'</p>'+(Nuvem.dono?'':'<button class="big alt" id="nvSair">🚪 Sair / trocar usuário</button>')+'</div>':''}<div id="updBox">${updHTML()}</div><div class="card"><button class="big alt" id="probAbrir">🐞 Reportar problema</button></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.admin?`<div class="card">${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">👥 Equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preventDefault();Nuvem.pedirEntrada();return;}const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(t.id==='updApp'){atualizarApp();return;}
@@ -388,16 +407,17 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(t.id==='confLimpar')confirmar('Limpar a lista de produtos conferidos?',()=>{f.confLidos=[];nova();},'Sim, limpar');
   
   else if(t.id==='probAbrir'){reportarProblema();}
-  else if(t.id==='nvAdm'){Nuvem.painel();}
+  else if(t.id==='nvAdm'){if(admOn())window.abrirAdm('eq');else Nuvem.painel();}
+  else if(d.admsub){admSub=d.admsub;render();}
   else if(t.id==='nvSair'){confirmar('Sair deste usuário neste celular?',async()=>{await Nuvem.sair();toast('Você saiu');render();},'Sair','red','Cancelar');}
   else if(t.id==='arqAbrir'){tab='arquivo';render();}
   else if(t.id==='arqFazer'){fazerArquivo(t.dataset.mes);}
   else if((t.id==='resetCli'||d.rmforn!==undefined||d.rmcli!==undefined)&&window.Nuvem&&!Nuvem.pode())toast('Só o administrador pode apagar nomes');
-  else if(t.id==='resetCli')confirmar('Apagar a lista de transportadoras salvas? Os registros continuam.',()=>{setClientes([]);toast('Lista apagada');sobre();},'Sim, apagar lista');
+  else if(t.id==='resetCli')confirmar('Apagar a lista de transportadoras salvas? Os registros continuam.',()=>{setClientes([]);toast('Lista apagada');render();},'Sim, apagar lista');
   else if((d.edcli!==undefined||d.edforn!==undefined)&&window.Nuvem&&!Nuvem.pode())toast('Só o administrador pode mudar nomes');
   else if(d.edforn!==undefined)renomearModal(d.edforn,true);else if(d.edcli!==undefined)renomearModal(d.edcli,false);
   else if(d.rmforn!==undefined){const n=d.rmforn;confirmar('Apagar "'+n+'" da lista de fornecedores? Os registros continuam.',()=>{setFornecedores(fornecedores().filter(c=>c!==n));if(f.forn===n)f.forn='';toast('Apagado');sobre();},'Sim, apagar');}
-  else if(d.rmcli!==undefined){const n=d.rmcli;confirmar('Apagar a transportadora "'+n+'" da lista? Os registros continuam.',()=>{setClientes(clientes().filter(c=>c!==n));if(f.cliente===n)f.cliente='';toast('Apagada');sobre();},'Sim, apagar');}
+  else if(d.rmcli!==undefined){const n=d.rmcli;confirmar('Apagar a transportadora "'+n+'" da lista? Os registros continuam.',()=>{setClientes(clientes().filter(c=>c!==n));if(f.cliente===n)f.cliente='';toast('Apagada');render();},'Sim, apagar');}
   else if(t.id==='selOn'){hist.sel=new Set();hist();}
   else if(t.id==='selEnv'){const sr=regs.filter(r=>hist.sel.has(r.id));if(!sr.length)return toast('Nenhum selecionado');const m=$('#modal');
     m.innerHTML=`<div><p style="font-size:20px"><b>Enviar ${sr.length} registro(s)</b></p><button class="big ok" id="eHtml">💻 Arquivo pro notebook (com fotos)</button><button class="big" id="eCsv">📄 Planilha CSV</button><button class="big alt" id="eX">Cancelar</button></div>`;m.classList.add('on');
@@ -428,7 +448,7 @@ function renomearModal(velho,receb){const m=$('#modal');
     if(receb&&f.forn===velho)f.forn=res.nome;if(!receb&&f.cliente===velho)f.cliente=res.nome;
     const mud=L.regsRenomear(regs,velho,res.nome,receb);
     if(mud.length)await tx('readwrite',s=>mud.forEach(r=>s.put(r)));if(window.Nuvem)mud.forEach(r=>Nuvem.salvar(r));
-    await load();m.classList.remove('on');toast('Nome mudado'+(mud.length?' em '+mud.length+' registro(s)':''));sobre();};}
+    await load();m.classList.remove('on');toast('Nome mudado'+(mud.length?' em '+mud.length+' registro(s)':''));render();};}
 
 function autoCls(k){return (f.auto||[]).includes(k)?' style="background:#fff3a0"':'';}
 function autoDica(k){return (f.auto||[]).includes(k)?'<small style="color:#a07000">⚠️ preenchido pelo romaneio, confira</small>':'';}
