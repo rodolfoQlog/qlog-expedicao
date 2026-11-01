@@ -88,11 +88,14 @@ html[data-tema=escuro] [style*="border-bottom:1px solid #ddd"]{border-color:#334
 html[data-tema=escuro] img[src="logo.png"]{background:#eef2f6;border-radius:14px;padding:8px}
 #updBan{position:fixed;left:10px;right:10px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:12;display:none;align-items:center;gap:8px;background:#1b8a3a;color:#fff;padding:10px 12px;border-radius:12px;box-shadow:0 4px 12px #0005;font-weight:bold}#updBan span{flex:1}#updBan button{border:0;border-radius:8px;padding:10px 12px;font-size:17px;font-weight:bold;background:#fff;color:#1b8a3a}#updBan #updBanX{background:transparent;color:#fff}
 
-/* v4.3.19: ícones próprios no lugar dos emojis */
+/* v4.3.20: ícones próprios no lugar dos emojis */
 .qx{display:inline;white-space:nowrap}.qx .qi{width:1.2em;height:1.2em;vertical-align:-.22em}
 
-/* v4.3.19: sem estouro lateral */
+/* v4.3.20: sem estouro lateral */
 *,*::before,*::after{box-sizing:border-box}html,body{max-width:100%;overflow-x:hidden}img,input,select,textarea,button,.card,table{max-width:100%}.card,label,b,small,span,p{overflow-wrap:anywhere}.eqp{overflow-x:hidden}.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.acts .big{flex:1 1 calc(50% - 6px);min-width:0;width:auto;margin:0;font-size:16px;padding:10px 8px;white-space:normal}
 footer{overflow-wrap:anywhere;line-height:1.5;padding:16px 12px}
 .tipo button span,button span,button b,nav span{overflow-wrap:normal;word-break:normal}.tipo button{min-width:0;padding-left:4px;padding-right:4px}@media(max-width:400px){.tipo button span{font-size:15px}}
-/* v4.3.19 */.supBtn{background:none;border:1.5px solid #0b4f8a;color:#0b4f8a;border-radius:20px;padding:6px 14px;font-size:14px;margin:0 0 8px;cursor:pointer;max-width:100%}.supBtn .qi{width:1.2em;height:1.2em;vertical-align:-.25em;margin-right:4px}footer small{font-size:11px}.chN:not(:empty){background:#e08a00;color:#fff;border-radius:10px;padding:0 7px;margin-left:4px;font-size:14px}.admsubs .big{flex:1 1 calc(50% - 8px);min-width:0}html[data-tema=escuro] .supBtn{color:#8cc4ff;border-color:#8cc4ff}
+/* v4.3.20 */.supBtn{background:none;border:1.5px solid #0b4f8a;color:#0b4f8a;border-radius:20px;padding:6px 14px;font-size:14px;margin:0 0 8px;cursor:pointer;max-width:100%}.supBtn .qi{width:1.2em;height:1.2em;vertical-align:-.25em;margin-right:4px}footer small{font-size:11px}.chN:not(:empty){background:#e08a00;color:#fff;border-radius:10px;padding:0 7px;margin-left:4px;font-size:14px}.admsubs .big{flex:1 1 calc(50% - 8px);min-width:0}html[data-tema=escuro] .supBtn{color:#8cc4ff;border-color:#8cc4ff}
+
+/* 4.3.20: chips de transportadora/fornecedor/cliente menores */
+.cli{gap:6px}.cli button{padding:6px 10px;font-size:14px;min-height:34px;border-radius:8px;border-width:2px;line-height:1.2;display:inline-flex;align-items:center;gap:4px}.cli button .ic,.cli button svg,.cli button img{width:16px;height:16px}
