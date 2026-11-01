@@ -145,11 +145,10 @@ N.mudarLogin=async(u,campos)=>N.fs.doc('logins/'+u).update(campos);
 N.senhaLogin=async(u,senha)=>N.fs.doc('loginSeg/'+u).set({hash:L.loginHash(u,senha)});
 N.painel=async(box)=>{const m=document.getElementById('modal');const A=box||m;let ms=[],ls=[];try{[ms,ls]=await Promise.all([N.membros(),N.logins()]);}catch(e){return toast('Sem internet ou regras da nuvem ainda não atualizadas');}
   const e=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');ls.sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
-  A.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">👥 Equipe</b>
+  A.innerHTML=`<div class="eqp" style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">👥 Equipe</b>
    ${ls.length?ls.map(x=>`<div class="card" style="margin:6px 0"><div style="font-size:19px"><b>${e(x.nome)}</b> <small>(${e(x.u)})</small>${x.bloq?' 🚫':''}<br>${L.papelNome(x.papel)}</div>
-     <div class="row"><button class="big" data-lgp="${e(x.u)}" data-v="${x.papel==='adm'?'colab':'adm'}" style="margin:4px 6px 4px 0">${x.papel==='adm'?'👷 Tornar colaborador':'Tornar '+L.papelNome('adm')}</button>
-     <button class="big ${x.bloq?'ok':'red'}" data-lgb="${e(x.u)}" data-v="${x.bloq?0:1}" style="margin:4px 0">${x.bloq?'✅ Liberar':'🚫 Bloquear'}</button>${x.u===N.login?'':`<button class="big red" data-lgr="${e(x.u)}" style="margin:4px 0 4px 6px">🗑 Remover</button>`}</div>
-     <button class="big alt" data-lgs="${e(x.u)}">🔑 Nova senha</button></div>`).join(''):'<p>Nenhum acesso criado ainda.</p>'}
+     <div class="acts"><button class="big" data-lgp="${e(x.u)}" data-v="${x.papel==='adm'?'colab':'adm'}">${x.papel==='adm'?'👷 Tornar colaborador':'Tornar '+L.papelNome('adm')}</button>
+     <button class="big ${x.bloq?'ok':'red'}" data-lgb="${e(x.u)}" data-v="${x.bloq?0:1}">${x.bloq?'✅ Liberar':'🚫 Bloquear'}</button>${x.u===N.login?'':`<button class="big red" data-lgr="${e(x.u)}">🗑 Remover</button>`}<button class="big alt" data-lgs="${e(x.u)}">🔑 Nova senha</button></div></div>`).join(''):'<p>Nenhum acesso criado ainda.</p>'}
    <div class="card" style="margin:10px 0;border:2px solid #0b4f8a"><b style="font-size:19px">➕ Novo acesso</b>
    <label>Nome</label><input id="lgN" style="width:100%;font-size:20px">
    <label>Usuário (sem espaço)</label><input id="lgU" autocapitalize="none" style="width:100%;font-size:20px">
@@ -157,7 +156,7 @@ N.painel=async(box)=>{const m=document.getElementById('modal');const A=box||m;le
    <label>Tipo</label><select id="lgP" style="width:100%;font-size:20px"><option value="colab">👷 Colaborador</option><option value="adm">${L.papelNome('adm')}</option></select>
    <button class="big ok" id="lgCriar">➕ Criar acesso</button></div>
    <b style="font-size:19px;display:block;margin-top:10px">📱 Celulares conectados</b>
-   ${ms.map(x=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:18px">${x.uid===N.uid?'📱 Este celular (ADM)':e(x.nome||'?')+' <small>'+(x.login?'('+e(x.login)+')':'(senha de acesso)')+'</small>'}${x.bloq?' 🚫':''}</span>${x.uid===N.uid?'':`<button class="big ${x.bloq?'ok':'red'}" data-nvb="${e(x.uid)}" data-v="${x.bloq?0:1}" style="flex:0 0 130px;margin:4px 0">${x.bloq?'Liberar':'Bloquear'}</button>${x.uid===N.adminUid?'':`<button class="big red" data-nvr="${e(x.uid)}" style="flex:0 0 130px;margin:4px 0 4px 6px">🗑 Remover</button>`}`}</div>`).join('')}
+   ${ms.map(x=>`<div class="row dev" style="align-items:center;flex-wrap:wrap"><span style="flex:1 1 100%;font-size:18px;overflow-wrap:anywhere">${x.uid===N.uid?'📱 Este celular (ADM)':e(x.nome||'?')+' <small>'+(x.login?'('+e(x.login)+')':'(senha de acesso)')+'</small>'}${x.bloq?' 🚫':''}</span>${x.uid===N.uid?'':`<button class="big ${x.bloq?'ok':'red'}" data-nvb="${e(x.uid)}" data-v="${x.bloq?0:1}" style="flex:1 1 40%;margin:4px 0">${x.bloq?'Liberar':'Bloquear'}</button>${x.uid===N.adminUid?'':`<button class="big red" data-nvr="${e(x.uid)}" style="flex:1 1 40%;margin:4px 0 4px 6px">🗑 Remover</button>`}`}</div>`).join('')}
    <label style="margin-top:10px">Senha de acesso (jeito antigo)</label><input id="nvNs" type="password" autocomplete="off" style="width:100%;font-size:20px">
    <button class="big" id="nvTs">🔑 Trocar senha de acesso</button><p><small>Quem entrou com a senha de acesso é colaborador. Depois de trocar, terão que digitar a senha nova.</small></p>${box?'':'<button class="big alt" id="nvF">Fechar</button>'}</div>`;if(!box)m.classList.add('on');
   const erro=x=>toast(/permission/i.test(String(x&&(x.code||x.message)))?'Sem permissão (regras da nuvem)':'Não consegui. Precisa de internet.');
