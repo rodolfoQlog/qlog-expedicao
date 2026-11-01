@@ -46,12 +46,12 @@ function resumoRec(r){const t=itensTot(r.itens),c=conferirSku(r.itens,r.skuEsp);
   if(t.cods)x.push('Itens: '+t.cods+' códigos · '+t.un+' unidades');resumoFim(r,x);
   if(r.skuEsp&&r.skuEsp.length){x.push('Conferência SKU: '+c.status);if(c.status==='DIVERGENTE')x.push('OK '+c.ok.length+' · Qtd diferente '+c.dif.length+' · Faltou '+c.faltou.length+' · A mais '+c.amais.length);}
   const it=r.itens||[],M=30;if(it.length){x.push('Códigos:');it.slice(0,M).forEach(i=>x.push(i.cod+' x '+i.qtd));if(it.length>M)x.push('... e mais '+(it.length-M)+' códigos');}
-  if(r.tipo==='estorno'&&cheio(r.motivo))x.push('Motivo: '+r.motivo.trim());if(cheio(r.obs))x.push('Obs: '+r.obs.trim());const f=fotosTxt(r);if(f)x.push('Fotos: '+f);return x.join('\n');}
+  if(r.tipo==='estorno'&&cheio(r.motivo))x.push('Motivo: '+r.motivo.trim());if(cheio(r.obs))x.push('Obs: '+r.obs.trim());return x.join('\n');}
 function resumo(r){if(r.tipo==='recebimento')return resumoRec(r);
   const x=resumoBase(r,r.tipo==='coleta'?'📦 COLETA':r.tipo==='estorno'?'↩️ ESTORNO':'🚚 SAÍDA','Transportadora');const v=Number(r.volumes)||0;
   if(v)x.push('Volumes: '+v);resumoFim(r,x);
   const cs=confStatus(r.conf);if(cs){x.push('Conferência: '+cs);const bad=r.conf.lidos.filter(z=>!z.ok).map(z=>z.cod);if(bad.length)x.push('Códigos diferentes: '+bad.join(', '));}
-  if(r.tipo==='estorno'&&cheio(r.motivo))x.push('Motivo: '+r.motivo.trim());if(cheio(r.obs))x.push('Obs: '+r.obs.trim());const f=fotosTxt(r);if(f)x.push('Fotos: '+f);return x.join('\n');}
+  if(r.tipo==='estorno'&&cheio(r.motivo))x.push('Motivo: '+r.motivo.trim());if(cheio(r.obs))x.push('Obs: '+r.obs.trim());return x.join('\n');}
 function filtrar(regs,q){q=String(q||'').trim().toLowerCase(); if(!q)return regs;
   return regs.filter(r=>(r.cliente||'').toLowerCase().includes(q)||(r.nfs||[]).some(n=>n.toLowerCase().includes(q))||fmtData(r.ts).includes(q)||(r.placa||'').toLowerCase().includes(q)||codigo(r).toLowerCase().includes(q)||(r.itens||[]).some(i=>String(i.cod).toLowerCase().includes(q))||tipoNome(r.tipo).toLowerCase().includes(q)||String(r.motivo||'').toLowerCase().includes(q));}
 function relatorio(regs){const dia={},cli={};
