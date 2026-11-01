@@ -26,7 +26,9 @@ async function papel(){N.admin=false;N.membro=false;
   N.status();}
 N.status=()=>{setTimeout(()=>N.enviarFila&&N.enviarFila(),1500);N.checado=true;if(window.nvMudou)window.nvMudou();};
 // primeira abertura. v4.3.3: usuário + senha (criados pelo ADM em 👥 Equipe); a senha de acesso antiga continua valendo
-N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esperar();const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;m.dataset.nv='1';
+N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esperar();const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;
+  // v4.3.8: primeira abertura (sem login salvo) já abre no ✍️ Criar meu acesso
+  if(equipe===undefined&&N.existe!==false)return N.criarMeuAcesso();m.dataset.nv='1';
   const cria=N.existe===false,velho=cria||equipe===true;const ic='<img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">';
   if(velho)m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">Identifique-se para acesso</b>
    <label>Seu nome</label><input id="nvN" value="${(N.nome||'').replace(/"/g,'&quot;')}" style="width:100%;font-size:20px">
@@ -254,9 +256,10 @@ N.criarMeuAcesso=()=>{const m=document.getElementById('modal');if(!m)return;m.da
    <label>Senha (pelo menos 6)</label><input id="caS" type="password" autocomplete="new-password" style="width:100%;font-size:20px">
    <label>Repita a senha</label><input id="caS2" type="password" autocomplete="new-password" style="width:100%;font-size:20px">
    <p><small>O ADM precisa liberar o seu acesso antes de você usar o app.</small></p><p id="caE" style="color:#c62828"></p>
-   <button class="big ok" id="caOk">✍️ Pedir acesso</button><button class="big alt" id="caX">Voltar</button></div>`;
+   <button class="big ok" id="caOk">✍️ Pedir acesso</button><button class="big alt" id="caX">Agora não</button><p style="text-align:center;margin:10px 0"><a href="#" id="caEntrar" style="font-size:18px;font-weight:bold;color:#0b4f8a">Já tenho acesso → Entrar</a></p></div>`;
   m.classList.add('on');const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
-  document.getElementById('caX').onclick=()=>{fecha();N.pedirEntrada(false);};
+  document.getElementById('caX').onclick=fecha;
+  document.getElementById('caEntrar').onclick=ev=>{ev.preventDefault();fecha();N.pedirEntrada(false);};
   document.getElementById('caOk').onclick=async()=>{const er=document.getElementById('caE'),s=document.getElementById('caS').value;
     if(s!==document.getElementById('caS2').value)return er.textContent='As senhas não são iguais';
     const p=L.acessoPedido(document.getElementById('caN').value,document.getElementById('caU').value,s,N.uid,Date.now());if(p.erro)return er.textContent=p.erro;
