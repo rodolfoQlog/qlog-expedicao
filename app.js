@@ -357,7 +357,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.21';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.22';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
@@ -385,7 +385,7 @@ window.abrirAdm=sub=>{if(!admOn())return;admSub=sub||'av';tab='adm';detalhe=null
 window.admAtualizar=sub=>{if(tab==='adm'&&admSub===sub&&!$('#modal').classList.contains('on'))admConteudo();};
 function admTela(){const b=(k,t)=>`<button class="big ${admSub===k?'ok':'alt'}" data-admsub="${k}" style="margin:4px 4px 4px 0;font-size:16px;padding:10px 4px">${t}</button>`;
   $('#main').innerHTML=`<div class="row admsubs" style="flex-wrap:wrap">${b('av','🔔 Avisos')}${b('ch',(window.Tema?Tema.ic('suporte'):'')+' Chamados <span id="admChN" class="chN">'+chN()+'</span>')}${b('eq','👥 Equipe')}${b('cad','📋 Cadastros')}</div><div id="admBox"></div>`;admConteudo();}
-// 4.3.21: aba 🎧 Chamados (suporte) com a contagem de novos
+// 4.3.22: aba 🎧 Chamados (suporte) com a contagem de novos
 const chN=()=>{const n=window.Nuvem&&Nuvem.chamadosTodos?L.chamadosNovos(Nuvem.chamadosTodos()):0;return n?String(n):'';};
 window.admContagem=()=>{const x=$('#admChN');if(x)x.textContent=chN();};
 function admConteudo(){const bx=$('#admBox');if(!bx)return;if(admSub==='eq')return Nuvem.painel(bx);if(admSub==='cad')return cadTela(bx);if(admSub==='ch'){Nuvem.pedirNotif();return Nuvem.verChamados(bx);}Nuvem.verAvisos(bx);}
@@ -401,7 +401,7 @@ function cadTela(bx){const j=Nuvem.janelaMin||60;
 const abertas={cli:false,forn:false};
 function dobra(k,t,n){return `<b data-dobra="${k}" style="display:block;cursor:pointer;font-size:19px;padding:6px 0">${abertas[k]?'▾':'▸'} ${t} (${n})</b>`;}
 function listasHTML(){return `<div class="card">${dobra('cli','🚚 Transportadoras salvas',clientes().length)}${!abertas.cli?'':clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card">${dobra('forn','📥 Fornecedores / clientes salvos',fornecedores().length)}${!abertas.forn?'':fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
-function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.on?'<div class="card"><p style="font-size:19px;margin:4px 0">👤 '+esc(Nuvem.login||'Este celular')+' · '+L.papelNome(Nuvem.admin?'adm':'colab')+'</p>'+(Nuvem.dono?'':'<button class="big alt" id="nvSair">🚪 Sair / trocar usuário</button>')+'</div>':''}<div id="updBox">${updHTML()}</div>${window.Tema?Tema.html():''}<div class="card"><button class="big alt" id="probAbrir">🐞 Reportar problema</button></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}${window.Nuvem&&Nuvem.ativo()?'':listasHTML()}`;}
+function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.on?'<div class="card"><p style="font-size:19px;margin:4px 0">👤 '+esc(Nuvem.login||'Este celular')+' · '+L.papelNome(Nuvem.admin?'adm':'colab')+'</p>'+(Nuvem.dono?'':'<button class="big alt" id="nvSair">🚪 Sair / trocar usuário</button>')+'</div>':''}<div id="updBox">${updHTML()}</div>${window.Tema?Tema.html():''}<div class="card"><button class="big alt" id="probAbrir">💬 Enviar feedback</button></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}${window.Nuvem&&Nuvem.ativo()?'':listasHTML()}`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preventDefault();Nuvem.pedirEntrada();return;}const db_=e.target.closest('[data-dobra]');if(db_){const k=db_.dataset.dobra;abertas[k]=!abertas[k];render();return;}const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(t.id==='updApp'){atualizarApp();return;}
@@ -535,7 +535,7 @@ function fotoLeve(d){return new Promise(ok=>{if(L.tamDataUrl(d)<=L.FOTO_ALVO)ret
 window.fotoLeve=fotoLeve;
 // v4.3.1: 🐞 Reportar problema (todos veem; o relato vai para a nuvem ou fica na fila até ter internet)
 var telaAnt='nova';
-// 4.3.21: 🎧 Falar com o suporte (rodapé) — nome, mensagem e foto opcional (comprimida). Vai para a nuvem como chamado.
+// 4.3.22: 🎧 Falar com o suporte (rodapé) — nome, mensagem e foto opcional (comprimida). Vai para a nuvem como chamado.
 function abrirSuporte(){const m=$('#modal');let img='';const N=window.Nuvem||{};const ic=window.Tema?Tema.ic('suporte'):'';
   m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">${ic} Falar com o suporte</b>
    <label>Seu nome</label><input id="supNome" maxlength="60" style="width:100%;font-size:19px" value="${esc(N.nome||localStorage.getItem('nvNome')||'')}">
@@ -552,18 +552,21 @@ function abrirSuporte(){const m=$('#modal');let img='';const N=window.Nuvem||{};
     if(ok){m.classList.remove('on');toast('✅ Mensagem enviada ao suporte. Obrigado!');}else{b.disabled=false;b.textContent='📤 Enviar';toast(N.fs?'Sem internet. Tente de novo.':'Sem conexão com a nuvem. Tente de novo.');}};}
 document.addEventListener('click',e=>{if(e.target.closest('#supAbrir')){e.preventDefault();abrirSuporte();}});
 function reportarProblema(){const m=$('#modal');let img='';const tela=telaAnt;
-  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">🐞 Reportar problema</b>
-   <label>O que aconteceu?</label><textarea id="probTxt" rows="5" maxlength="2000" style="width:100%;font-size:19px"></textarea>
-   <input type="file" id="probImg" accept="image/*" hidden><button class="big alt" id="probFoto">📷 Anexar print ou foto (opcional)</button><div id="probPrev"></div>
+  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">💬 Enviar feedback</b>
+   <p style="margin:0 0 6px;font-size:16px">Conte um erro ou sugira uma melhoria.</p>
+   <label>Tipo</label><div class="cli" id="fbTipo"><button type="button" data-fb="erro" class="on">🐞 Erro</button><button type="button" data-fb="melhoria">💡 Melhoria</button></div>
+   <label id="fbLbl">O que aconteceu?</label><textarea id="probTxt" rows="5" maxlength="2000" style="width:100%;font-size:19px"></textarea>
+   <input type="file" id="probImg" accept="image/*" hidden style="display:none"><button class="big alt" id="probFoto">📷 Anexar print ou foto (opcional)</button><div id="probPrev"></div>
    <p style="color:#678;font-size:14px">A versão do app, o modelo do celular e os últimos erros vão junto.</p>
    <button class="big ok" id="probEnv">📤 Enviar</button><button class="big alt" id="probX">Cancelar</button></div>`;m.classList.add('on');
+  let fbT='erro';$('#fbTipo').onclick=ev=>{const b=ev.target.closest('[data-fb]');if(!b)return;fbT=b.dataset.fb;m.querySelectorAll('[data-fb]').forEach(x=>x.classList.toggle('on',x===b));$('#fbLbl').textContent=fbT==='melhoria'?'Qual a sua sugestão?':'O que aconteceu?';};
   $('#probX').onclick=()=>m.classList.remove('on');$('#probFoto').onclick=()=>$('#probImg').click();
   $('#probImg').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const r=new FileReader();r.onload=async()=>{img=await fotoLeve(String(r.result));
     $('#probPrev').innerHTML=`<img src="${img}" style="max-width:100%;max-height:200px;margin:6px 0"><button class="big red" id="probTira">🗑 Tirar foto</button>`;$('#probTira').onclick=()=>{img='';$('#probPrev').innerHTML='';};};r.readAsDataURL(fl);};
-  $('#probEnv').onclick=async()=>{const txt=$('#probTxt').value.trim();if(!txt)return toast('Escreva o que aconteceu');
+  $('#probEnv').onclick=async()=>{const t0=$('#probTxt').value.trim();if(!t0)return toast(fbT==='melhoria'?'Escreva a sua sugestão':'Escreva o que aconteceu');const txt=fbT==='melhoria'?'[Melhoria] '+t0:t0;
     const N=window.Nuvem||{};const p=L.probCriar({txt,img,uid:N.uid||'',nome:N.nome||localStorage.getItem('nvNome')||'',versao:APP_V,plataforma:L.probPlataforma(navigator.userAgent,!!window.AndroidScan),
       aparelho:navigator.userAgent,tela,erros:JSON.parse(localStorage.getItem('errosApp')||'[]'),ts:Date.now()});
-    m.classList.remove('on');const ok=N.reportar?await N.reportar(p):false;toast(ok?'✅ Problema enviado. Obrigado!':'📥 Guardado. Será enviado quando tiver internet.');};}
+    m.classList.remove('on');const ok=N.reportar?await N.reportar(p):false;toast(ok?'✅ Feedback enviado. Obrigado!':'📥 Guardado. Será enviado quando tiver internet.');};}
 window.reportarProblema=reportarProblema;
 // ===== v4.1: arquivo mensal =====
 const podeArquivar=()=>!(window.Nuvem&&Nuvem.ativo())||Nuvem.admin;
